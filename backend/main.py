@@ -1,4 +1,8 @@
 from fastapi import FastAPI
+from fastapi_mail import FastMail, MessageSchema, MessageType
+from fastapi import Depends
+from dependencies import get_mail
+from aiosmtplib import SMTPResponseException
 
 app = FastAPI()
 
@@ -11,3 +15,22 @@ async def root():
 @app.get("/hello/{name}")
 async def say_hello(name: str):
     return {"message": f"Hello {name}"}
+
+
+@app.get("/mail/test")
+async def mail_test(
+        email: str,
+        mail: FastMail = Depends(get_mail),
+):
+    message = MessageSchema(
+        subject="Test Mail",
+        recipients=[email],
+        body=f"Hello {email}",
+        subtype=MessageType.plain
+    )
+    try:
+        await mail.send_message(message)
+    except SMTPResponseException as e:
+        if e.code == -1 and b"\\x00\\x00\\x00" in str(e).encode():
+            print("⚠ 忽略 QQ 邮箱 SMTP 关闭阶段的非标准响应（邮件已成功发送）")
+    return {"message": "邮件发送成功！"}
